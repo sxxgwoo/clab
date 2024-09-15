@@ -1,8 +1,9 @@
 # clab
 
+<!--
 clab
-|── base \
-    |── algorithms  \
+|── base
+    |── algorithms
     |── common
     |── dataloader
         |── rl_data_generator.py
@@ -17,4 +18,5 @@ clab
     |── main_test.py
 |── run
     |── run_bc.py
-    |── run_evaluate.py
+    |── run_evaluate.py 
+-->
