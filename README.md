@@ -1,6 +1,8 @@
 # clab
 
 ## project
+Samsumg electronics CLab - BaroNow project
+Development of Context-Based Real-Time Departure Notification Algorithm
 ```
 clab
 |── base
@@ -20,5 +22,4 @@ clab
 |── run
     |── run_bc.py
     |── run_evaluate.py 
-    
 ```
