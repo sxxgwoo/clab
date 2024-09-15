@@ -1,7 +1,8 @@
-'''
+# clab
+
 clab
-|── base
-    |── algorithms
+|── base \
+    |── algorithms  \
     |── common
     |── dataloader
         |── rl_data_generator.py
@@ -17,5 +18,3 @@ clab
 |── run
     |── run_bc.py
     |── run_evaluate.py
-'''
-# clab
