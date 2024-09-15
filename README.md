@@ -1,7 +1,7 @@
 # clab
 
 ## project
-Samsumg electronics CLab - BaroNow project
+Samsumg electronics CLab - BaroNow project  \
 Development of Context-Based Real-Time Departure Notification Algorithm
 ```
 clab
