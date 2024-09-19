@@ -1316,7 +1316,7 @@ class TemporalMapSimulation():
 
             while target_node == self.start_node:
                 target_point = np.random.uniform(size=2)
-                _, target_node = node_map.predict(target_point)
+                _, target_node = self.temporal_graph.node_map.predict(target_point)
         elif np.array(target_loc).ndim == 0:    # node no.
             target_point = self.temporal_graph.centers[target_loc]
             target_node = target_loc
@@ -1437,7 +1437,7 @@ class TemporalMapSimulation():
         self.cur_point = self.agent.cur_coordinates(self.temporal_graph.centers)
         self.cur_time = self.start_time
 
-    def run_time_machine(self, temporal_graph=None, start_node=None, target_node=None, target_time=None, target_time_safe_margin=None, start_add_time=None, target_add_time=None, save_instance=True):
+    def run_time_machine(self, temporal_graph=None, start_node=None, target_node=None, target_time=None, target_time_safe_margin=8, start_add_time=None, target_add_time=None, save_instance=True):
         temporal_graph = self.temporal_graph if temporal_graph is None else temporal_graph
         start_node = self.start_node if start_node is None else start_node
         target_node = self.target_node if target_node is None else target_node
@@ -1450,19 +1450,20 @@ class TemporalMapSimulation():
         if (start_node is not None and target_node is not None and\
              target_time is not None and start_add_time is not None and target_add_time is not None):
             # first predict from target_time
+            target_time = target_time - target_time_safe_margin
             pre_adj_TimeMachine = temporal_graph.transform_oracle(target_time)
             pre_dijkstra_TimeMachine = Dijkstra(pre_adj_TimeMachine)
             pre_shortest_time_TimeMachine, pre_path_TimeMachine = pre_dijkstra_TimeMachine.dijkstra(start_node, target_node)
             pre_total_time_TimeMachine = pre_shortest_time_TimeMachine + start_add_time + target_add_time
 
             # second predict from adjusted predict leaving time
-            call_time_TimeMachine = int(np.round(target_time - target_time_safe_margin - pre_total_time_TimeMachine))
+            call_time_TimeMachine = int(np.round(target_time - pre_total_time_TimeMachine))
             adj_TimeMachine = temporal_graph.transform_oracle(call_time_TimeMachine)
             dijkstra_TimeMachine = Dijkstra(adj_TimeMachine)
             shortest_time_TimeMachine, path_TimeMachine = dijkstra_TimeMachine.dijkstra(start_node, target_node)
 
             path_time_TimeMachine = shortest_time_TimeMachine + start_add_time + target_add_time
-            req_leaving_time_TimeMachine = target_time - target_time_safe_margin - path_time_TimeMachine
+            req_leaving_time_TimeMachine = target_time - path_time_TimeMachine
 
             # result data
             if save_instance:
@@ -1476,6 +1477,7 @@ class TemporalMapSimulation():
 
 
             return {"call_time":call_time_TimeMachine,
+                    "target_time":target_time,
                     "path":path_TimeMachine,
                     "path_time":path_time_TimeMachine,
                     "req_leaving_time":req_leaving_time_TimeMachine}
@@ -1484,8 +1486,9 @@ class TemporalMapSimulation():
 
     # (Version 4.1 Update)
     def api_call(self, adjacent_matrix=None, cur_node=None, target_node=None, agent=None,
-                start_add_time=None, target_add_time=None, save_instance=True, save_history=True):
-        adjacent_matrix = self.temporal_graph.transform(self.cur_time) if adjacent_matrix is None else adjacent_matrix
+                start_add_time=None, target_add_time=None, save_instance=True, save_history=True, api_time=None):
+        api_time= self.cur_time if api_time is None else api_time
+        adjacent_matrix = self.temporal_graph.transform(api_time) if adjacent_matrix is None else adjacent_matrix
         cur_node = self.cur_node if cur_node is None else cur_node
         target_node = self.target_node if target_node is None else target_node
         agent = self.agent if agent is None else agent
@@ -1500,7 +1503,7 @@ class TemporalMapSimulation():
             pred_time = pred_time_ + agent.remain_distance
             pred_path = [agent.cur_node] + pred_path_
 
-        call_time_LastAPI = self.cur_time
+        call_time_LastAPI = api_time
         call_node_LastAPI = cur_node
         call_point_LastAPI = agent.cur_point
         path_LastAPI = pred_path
@@ -1883,6 +1886,26 @@ def make_feature_set(dataframe):
 
     return df
 
+def make_feature_set_embedding(context_df, temporal_cols, spatial_cols, other_cols, fillna=None):
+    # temproal features preprocessing
+    temproal_arr = context_df[temporal_cols].applymap(lambda x: format_str_to_time(x) if type(x) == str else x).fillna(0).to_numpy().astype(np.float32)
+
+    # spatial features preprocessing
+    spatial_cols_transform = list(np.stack([[f"{cols}_x", f"{cols}_y"] for cols in spatial_cols]).ravel())
+
+    spatial_arr_stack = np.stack(list(context_df[spatial_cols].applymap(lambda x: np.array(x)).to_dict('list').values())).astype(np.float32)
+    spatial_arr = spatial_arr_stack.transpose(1,0,2).reshape(-1,4)
+
+    # other features
+    other_arr = context_df[other_cols].to_numpy().astype(np.float32)
+
+    # # combine and transform to dataframe
+    df_columns = temporal_cols + spatial_cols_transform + other_cols
+    df_transform = pd.DataFrame(np.hstack([temproal_arr, spatial_arr, other_arr]),
+                             columns=df_columns, index=context_df.index)
+    if fillna is not None:
+        df_transform = df_transform.fillna(fillna)
+    return df_transform
 
 
 class RewardFunction():
