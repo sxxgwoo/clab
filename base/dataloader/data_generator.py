@@ -101,6 +101,12 @@ for i in range(1000):
     test['TimeMachineResult'].append(refined_timeMachine['req_leaving_time']+refined_timeMachine_result['path_time'])
     test['oracle'].append(simul.cur_time)
     test['target_8'].append(refined_target_time-8)
+    
+    
+    
+    time_interval=3
+    repeat = (refined_target_time - 8 - simul.cur_time)// time_interval
+    
 
 df = pd.DataFrame(test)
 save_path='../../data/traffic/output.csv'
