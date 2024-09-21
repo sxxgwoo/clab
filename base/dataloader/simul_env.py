@@ -1486,7 +1486,7 @@ class TemporalMapSimulation():
 
     # (Version 4.1 Update)
     def api_call(self, adjacent_matrix=None, cur_node=None, target_node=None, agent=None,
-                start_add_time=None, target_add_time=None, save_instance=True, save_history=True, api_time=None):
+                start_add_time=None, target_add_time=None, save_instance=True, save_history=True, api_time=None, target_time=None):
         api_time= self.cur_time if api_time is None else api_time
         adjacent_matrix = self.temporal_graph.transform(api_time) if adjacent_matrix is None else adjacent_matrix
         cur_node = self.cur_node if cur_node is None else cur_node
@@ -1508,7 +1508,9 @@ class TemporalMapSimulation():
         call_point_LastAPI = agent.cur_point
         path_LastAPI = pred_path
         path_time_LastAPI = pred_time + start_add_time + target_add_time
-        req_leaving_time = self.target_time - self.target_time_safe_margin - path_time_LastAPI
+        
+        target_time = self.target_time if target_time is None else target_time
+        req_leaving_time = target_time - self.target_time_safe_margin - path_time_LastAPI
         
         if save_instance:
             self.call_time_LastAPI = call_time_LastAPI

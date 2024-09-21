@@ -61,99 +61,132 @@ temporal_graph.make_temporal_observations()
 # ###################################################################################
 simul = TemporalMapSimulation(temporal_graph)
 # simul.reset_state(reset_all=False, save_interval=3, verbose=1) #save_interval: 분단위 쪼개기 verbose: 정보 보이기/
-
-test={'refinedTimemachine': [], 'oracle': [], 'TimeMachineResult':[],'target_8':[]}
-for i in range(1000):
+time_interval=3
+df_final = pd.DataFrame()
+# test={'refinedTimemachine': [], 'oracle': [], 'TimeMachineResult':[],'target_8':[]}
+for i in range(30000):
     simul.reset_state(reset_all=True, save_interval=3, verbose=1)
 
     # simul.t #라운드
-    simul.cur_time #시간 숫자버전
+    # simul.cur_time #시간 숫자버전
     # format_time_to_str(simul.cur_time) #실제시간
     # # format_str_to_time(format_time_to_str(simul.cur_time))
     # # format_str_to_split(format_time_to_str(simul.cur_time))
     # simul.step() #한 step씩 보고 싶을때
 
     context = simul.run()
-    context
-    format_str_to_time(context['target_time'])
-    format_str_to_time(context['req_leaving_time'])
+    # context
+    # format_str_to_time(context['target_time'])
+    # format_str_to_time(context['req_leaving_time'])
 
-    df=pd.Series(context).to_frame().T
+    # df=pd.Series(context).to_frame().T
     # # format_str_to_time(df['target_time'])
     # simul.target_time #target 시간
-    df
+    # df
 
     api_context = simul.api_call()
 
 
-    api_context
+    # api_context
     #임의의 apicall을 한순간을 출발예정시간의 optimal로 생각할경우 target time 수정
     refined_target_time = api_context['call_time']+ api_context['path_time'] +8
-    refined_target_time #optimal로 부터 나온 target time
-    api_context
+    # refined_target_time #optimal로 부터 나온 target time
+    # api_context
 
     #수정된 타겟 타임
-    format_time_to_str(refined_target_time)
+    # format_time_to_str(refined_target_time)
     #새로운 타임머신
     refined_timeMachine=simul.run_time_machine(target_time=int(refined_target_time))
-    test['refinedTimemachine'].append(refined_timeMachine['req_leaving_time'])
-    refined_timeMachine_result=simul.api_call(api_time=int(refined_timeMachine['req_leaving_time']))
-    test['TimeMachineResult'].append(refined_timeMachine['req_leaving_time']+refined_timeMachine_result['path_time'])
-    test['oracle'].append(simul.cur_time)
-    test['target_8'].append(refined_target_time-8)
-    
-    
-    
-    time_interval=3
-    repeat = (refined_target_time - 8 - simul.cur_time)// time_interval
-    
+    # refined_timeMachine
 
-df = pd.DataFrame(test)
-save_path='../../data/traffic/output.csv'
+    # test['refinedTimemachine'].append(refined_timeMachine['req_leaving_time'])
+    refined_timeMachine_result=simul.api_call(api_time=int(refined_timeMachine['req_leaving_time']), target_time=refined_target_time)
+    # test['TimeMachineResult'].append(refined_timeMachine['req_leaving_time']+refined_timeMachine_result['path_time'])
+    # test['oracle'].append(simul.cur_time)
+    # test['target_8'].append(refined_target_time-8)
+    # refined_timeMachine_result
+
+
+    
+    # timeMachine으로 부터 60분전 부터 algorithm 실행
+    if simul.cur_time > refined_timeMachine['req_leaving_time']:
+        repeat = 20 + (simul.cur_time - refined_timeMachine['req_leaving_time'])//time_interval
+    else:
+        repeat = 20
+    # repeat
+
+    # refined_timeMachine
+    # format_time_to_str(refined_timeMachine['req_leaving_time'])
+    #context refine
+    context['start_time'] = format_time_to_str(refined_timeMachine['req_leaving_time'] - 60)
+    context['target_time'] = format_time_to_str(refined_target_time - 8)
+    context['call_time_TimeMachine']=format_time_to_str(refined_timeMachine['call_time'])
+    context['path_TimeMachine'] = refined_timeMachine['path']
+    context['path_time_TimeMachine']= refined_timeMachine['path_time']
+    context['cur_time']= format_time_to_str(refined_timeMachine['req_leaving_time'] - 60)
+    context['req_leaving_time'] = format_time_to_str(refined_timeMachine['req_leaving_time'])
+    # context
+
+    context_df =  pd.Series(context).to_frame().T
+    # context_df
+
+    contexts_repeat_df = pd.concat([context_df]*int(repeat), ignore_index=True)
+    # contexts_repeat_df
+
+    contexts_repeat_df['cur_time'] = time_interval
+    contexts_repeat_df['cur_time'][0] = refined_timeMachine['req_leaving_time'] - 60
+    contexts_repeat_df['cur_time'] = (contexts_repeat_df['cur_time'].cumsum()).apply(format_time_to_str)
+    contexts_repeat_df['remain_time_from_TimeMachine'] = contexts_repeat_df['req_leaving_time'].apply(format_str_to_time) - contexts_repeat_df['cur_time'].apply(format_str_to_time)
+    contexts_repeat_df['oracle']= simul.cur_time
+
+    df_final = pd.concat([df_final ,contexts_repeat_df], ignore_index=True)
+
+# df = pd.DataFrame(test)
+save_path='../../data/traffic/output_test.csv'
 os.makedirs(os.path.dirname(save_path), exist_ok=True)
-df.to_csv(save_path, index=False)
+df_final.to_csv(save_path, index=False)
 
 print("file saved successfully")
 ##############################################
 
 
-#feature
-temporal_feature_cols = ['cur_time','target_time', 'call_time_TimeMachine', 'remain_time_from_TimeMachine']
-spatial_feature_cols = ['cur_point', 'target_point']
-other_feature_cols = ['path_time_TimeMachine']
-other_feature_cols_pathtime = ['path_time_TimeMachine', 'path_time_LastAPI']
+# #feature
+# temporal_feature_cols = ['cur_time','target_time', 'call_time_TimeMachine', 'remain_time_from_TimeMachine']
+# spatial_feature_cols = ['cur_point', 'target_point']
+# other_feature_cols = ['path_time_TimeMachine']
+# other_feature_cols_pathtime = ['path_time_TimeMachine', 'path_time_LastAPI']
 
-time_interval=3
+# time_interval=3
 
-simul.reset_state(reset_all=True, save_interval=time_interval, verbose=0)
+# simul.reset_state(reset_all=True, save_interval=time_interval, verbose=0)
 
-context = simul.run()
-context
+# context = simul.run()
+# context
 
-repeat = (simul.target_time - 8 - simul.cur_time) // time_interval
-context_df =  pd.Series(context).to_frame().T
-context_df
+# repeat = (simul.target_time - 8 - simul.cur_time) // time_interval
+# context_df =  pd.Series(context).to_frame().T
+# context_df
 
-cotexts_repeat_df = pd.concat([context_df]*repeat, ignore_index=True)
-# cotexts_repeat_df=cotexts_repeat_df.drop(['call_time_LastAPI', 'call_point_LastAPI','path_LastAPI','call_node_LastAPI','path_time_LastAPI'], axis=1)
+# cotexts_repeat_df = pd.concat([context_df]*repeat, ignore_index=True)
+# # cotexts_repeat_df=cotexts_repeat_df.drop(['call_time_LastAPI', 'call_point_LastAPI','path_LastAPI','call_node_LastAPI','path_time_LastAPI'], axis=1)
 
-cotexts_repeat_df['cur_time'] = time_interval
+# cotexts_repeat_df['cur_time'] = time_interval
 
-cotexts_repeat_df['cur_time'][0] = simul.cur_time
-cotexts_repeat_df['cur_time'] = (cotexts_repeat_df['cur_time'].cumsum()).apply(format_time_to_str)
-cotexts_repeat_df['remain_time_from_TimeMachine'] = cotexts_repeat_df['req_leaving_time'].apply(format_str_to_time) - cotexts_repeat_df['cur_time'].apply(format_str_to_time)
+# cotexts_repeat_df['cur_time'][0] = simul.cur_time
+# cotexts_repeat_df['cur_time'] = (cotexts_repeat_df['cur_time'].cumsum()).apply(format_time_to_str)
+# cotexts_repeat_df['remain_time_from_TimeMachine'] = cotexts_repeat_df['req_leaving_time'].apply(format_str_to_time) - cotexts_repeat_df['cur_time'].apply(format_str_to_time)
 
-cotexts_repeat_df
+# cotexts_repeat_df
 
-temporal_feature_cols = ['cur_time','target_time', 'call_time_TimeMachine', 'remain_time_from_TimeMachine']
-spatial_feature_cols = ['cur_point', 'target_point']
-other_feature_cols = ['path_time_TimeMachine']
-other_feature_cols_pathtime = ['path_time_TimeMachine', 'path_time_LastAPI']
+# temporal_feature_cols = ['cur_time','target_time', 'call_time_TimeMachine', 'remain_time_from_TimeMachine']
+# spatial_feature_cols = ['cur_point', 'target_point']
+# other_feature_cols = ['path_time_TimeMachine']
+# other_feature_cols_pathtime = ['path_time_TimeMachine', 'path_time_LastAPI']
 
-contexts_feature_df = make_feature_set_embedding(cotexts_repeat_df, 
-            temporal_feature_cols, spatial_feature_cols, other_feature_cols)
+# contexts_feature_df = make_feature_set_embedding(cotexts_repeat_df, 
+#             temporal_feature_cols, spatial_feature_cols, other_feature_cols)
 
-contexts_feature_df
+# contexts_feature_df
 
 # for t in range(simul.target_time - simul.start_time):
 #     simul.run()
