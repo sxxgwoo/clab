@@ -62,6 +62,7 @@ temporal_graph.make_temporal_observations()
 simul = TemporalMapSimulation(temporal_graph)
 # simul.reset_state(reset_all=False, save_interval=3, verbose=1) #save_interval: 분단위 쪼개기 verbose: 정보 보이기/
 time_interval=3
+episode =0
 df_final = pd.DataFrame()
 # test={'refinedTimemachine': [], 'oracle': [], 'TimeMachineResult':[],'target_8':[]}
 for i in range(30000):
@@ -139,10 +140,16 @@ for i in range(30000):
     contexts_repeat_df['remain_time_from_TimeMachine'] = contexts_repeat_df['req_leaving_time'].apply(format_str_to_time) - contexts_repeat_df['cur_time'].apply(format_str_to_time)
     contexts_repeat_df['oracle']= simul.cur_time
 
+    contexts_repeat_df['round'] = 1
+    contexts_repeat_df['round'] = contexts_repeat_df['round'].cumsum() -1
+    contexts_repeat_df['episode'] = episode
+    episode +=1
+
+
     df_final = pd.concat([df_final ,contexts_repeat_df], ignore_index=True)
 
 # df = pd.DataFrame(test)
-save_path='../../data/traffic/output_test.csv'
+save_path='../../data/traffic/output_data.csv'
 os.makedirs(os.path.dirname(save_path), exist_ok=True)
 df_final.to_csv(save_path, index=False)
 
