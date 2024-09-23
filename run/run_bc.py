@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 import pandas as pd
-from bidding_train_env.common.utils import normalize_state, normalize_reward, save_normalize_dict
-from bidding_train_env.baseline.iql.replay_buffer import ReplayBuffer
-from bidding_train_env.baseline.bc.behavior_clone import BC
+from base.common.utils import normalize_state, normalize_reward, save_normalize_dict
+from base.algorithms.bc.replay_buffer import ReplayBuffer
+from base.algorithms.bc.behavior_clone import BC
 import logging
 import ast
 
@@ -50,9 +50,9 @@ def train_model():
     normalize_indices = [13, 14, 15]
     is_normalize = True
 
-    normalize_dic = normalize_state(training_data, state_dim, normalize_indices)
-    normalize_reward(training_data, "reward_continuous")
-    save_normalize_dict(normalize_dic, "saved_model/BCtest")
+    normalize_dic = normalize_state(training_data, state_dim, normalize_indices) #return값이 normalize하려는 column의 stat임, training_data에 normalize값 추가되어있음
+    normalize_reward(training_data, "reward_continuous") #필요없을듯
+    save_normalize_dict(normalize_dic, "saved_model/BCtest") #normalize한 column의 stat을 pkl로 저장
 
     replay_buffer = ReplayBuffer()
     add_to_replay_buffer(replay_buffer, training_data, is_normalize)
@@ -108,3 +108,4 @@ def test_trained_model(model, replay_buffer):
 
 if __name__ == "__main__":
     run_bc()
+# run_bc() -> train_model() -> 

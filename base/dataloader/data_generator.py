@@ -2,9 +2,7 @@ from simul_env import *
 import numpy as np
 import pandas as pd
 
-
 ############################################################################################################
-# Simulation with LinUCB ###################################################################################
 # (Initial Setting & Parameter Setting) -----------------------------------------------------------------------------------------------
 
 random_state = 1
@@ -65,7 +63,7 @@ time_interval=3
 episode =0
 df_final = pd.DataFrame()
 # test={'refinedTimemachine': [], 'oracle': [], 'TimeMachineResult':[],'target_8':[]}
-for i in range(30000):
+for i in range(3):
     simul.reset_state(reset_all=True, save_interval=3, verbose=1)
 
     # simul.t #라운드
@@ -156,15 +154,6 @@ df_final.to_csv(save_path, index=False)
 print("file saved successfully")
 ##############################################
 
-
-# #feature
-# temporal_feature_cols = ['cur_time','target_time', 'call_time_TimeMachine', 'remain_time_from_TimeMachine']
-# spatial_feature_cols = ['cur_point', 'target_point']
-# other_feature_cols = ['path_time_TimeMachine']
-# other_feature_cols_pathtime = ['path_time_TimeMachine', 'path_time_LastAPI']
-
-# time_interval=3
-
 # simul.reset_state(reset_all=True, save_interval=time_interval, verbose=0)
 
 # context = simul.run()
@@ -195,22 +184,3 @@ print("file saved successfully")
 
 # contexts_feature_df
 
-# for t in range(simul.target_time - simul.start_time):
-#     simul.run()
-    
-# simul.loop
-# while(simul.loop):
-#     simul.run()
-
-#     if simul.t %30 == 0:
-#         simul.api_call()
-#         #simul.api_call(save_instance=False, save_history=False) 기록하고 싶지 않을때
-#         #simul.api_call? 정보 궁금하면
-    
-# #바로 딕셔너리로 feature받고싶으면
-# # simul.save_data('', save_data=False)
-
-
-# pd.DataFrame(simul.history_time_machine).to_clipboard() #처음 알람등록시 타임머신 
-# pd.DataFrame(simul.history).to_clipboard() #내가 api 친 모든 정보
-# pd.DataFrame(simul.history_full_info).to_clipboard() #전체정보를 다 알숟있는 api를 다 쳐서 오라클알수있음
