@@ -3,7 +3,7 @@ from collections import namedtuple
 import numpy as np
 import torch
 
-Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
+Experience = namedtuple("Experience", field_names=["state", "action"])
 
 
 class ReplayBuffer:
@@ -14,20 +14,18 @@ class ReplayBuffer:
     def __init__(self):
         self.memory = []
 
-    def push(self, state, action, reward, next_state, done):
+    def push(self, state, action):
         """saving an experience tuple"""
-        experience = Experience(state, action, reward, next_state, done)
+        experience = Experience(state, action)
         self.memory.append(experience)
 
     def sample(self, batch_size):
         """randomly sampling a batch of experiences"""
         tem = random.sample(self.memory, batch_size)
-        states, actions, rewards, next_states, dones = zip(*tem)
-        states, actions, rewards, next_states, dones = np.stack(states), np.stack(actions), np.stack(rewards), np.stack(
-            next_states), np.stack(dones)
-        states, actions, rewards, next_states, dones = torch.FloatTensor(states), torch.FloatTensor(
-            actions), torch.FloatTensor(rewards), torch.FloatTensor(next_states), torch.FloatTensor(dones)
-        return states, actions, rewards, next_states, dones
+        states, actions = zip(*tem)
+        states, actions = np.stack(states), np.stack(actions)
+        states, actions = torch.FloatTensor(states), torch.FloatTensor(actions)
+        return states, actions
 
     def __len__(self):
         """return the length of replay buffer"""

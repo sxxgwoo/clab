@@ -1,7 +1,11 @@
 from simul_env import *
 import numpy as np
 import pandas as pd
+import math
+import sys
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+print(sys.path)
 ############################################################################################################
 # (Initial Setting & Parameter Setting) -----------------------------------------------------------------------------------------------
 
@@ -59,12 +63,12 @@ temporal_graph.make_temporal_observations()
 # ###################################################################################
 simul = TemporalMapSimulation(temporal_graph)
 # simul.reset_state(reset_all=False, save_interval=3, verbose=1) #save_interval: 분단위 쪼개기 verbose: 정보 보이기/
-time_interval=3
+time_interval=1
 episode =0
 df_final = pd.DataFrame()
 # test={'refinedTimemachine': [], 'oracle': [], 'TimeMachineResult':[],'target_8':[]}
-for i in range(3):
-    simul.reset_state(reset_all=True, save_interval=3, verbose=1)
+for i in range(20):
+    simul.reset_state(reset_all=True, save_interval=1, verbose=1)
 
     # simul.t #라운드
     # simul.cur_time #시간 숫자버전
@@ -107,11 +111,11 @@ for i in range(3):
 
 
     
-    # timeMachine으로 부터 60분전 부터 algorithm 실행
+    # timeMachine으로 부터 60분전 부터 algorithm 실행 simul.cur_time이 oracle임
     if simul.cur_time > refined_timeMachine['req_leaving_time']:
-        repeat = 20 + (simul.cur_time - refined_timeMachine['req_leaving_time'])//time_interval
+        repeat = 61 + math.ceil((simul.cur_time - refined_timeMachine['req_leaving_time'])/time_interval)
     else:
-        repeat = 20
+        repeat = 61
     # repeat
 
     # refined_timeMachine
@@ -147,7 +151,7 @@ for i in range(3):
     df_final = pd.concat([df_final ,contexts_repeat_df], ignore_index=True)
 
 # df = pd.DataFrame(test)
-save_path='../../data/traffic/output_data.csv'
+save_path='../../data/traffic/output_test2.csv'
 os.makedirs(os.path.dirname(save_path), exist_ok=True)
 df_final.to_csv(save_path, index=False)
 

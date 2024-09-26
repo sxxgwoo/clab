@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import warnings
 import glob
+import numpy as np
 
 warnings.filterwarnings('ignore')
 
@@ -19,147 +20,113 @@ class RlDataGenerator:
 
     def batch_generate_rl_data(self):
         os.makedirs(self.training_data_path, exist_ok=True)
-        csv_files = glob.glob(os.path.join(self.file_folder_path, '*.csv'))
-        print(csv_files)
-        training_data_list = []
-        for csv_path in csv_files:
-            print("Start processing：", csv_path)
-            df = pd.read_csv(csv_path)
-            df_processed = self._generate_rl_data(df)
-            csv_filename = os.path.basename(csv_path)
-            trainData_filename = csv_filename.replace('.csv', '-rlData.csv')
-            trainData_path = os.path.join(self.training_data_path, trainData_filename)
-            df_processed.to_csv(trainData_path, index=False)
-            training_data_list.append(df_processed)
-            del df, df_processed
-            print("File processed successfully：", csv_path)
-        combined_dataframe = pd.concat(training_data_list, axis=0, ignore_index=True)
-        combined_dataframe_path = os.path.join(self.training_data_path, "training_data_all-rlData.csv")
-        combined_dataframe.to_csv(combined_dataframe_path, index=False)
-        print("Successfully integrated multiple days of training data; saved to:", combined_dataframe_path)
+        # csv_files = glob.glob(os.path.join(self.file_folder_path, '*.csv'))
+        # print(csv_files)
+
+        csv_path= self.file_folder_path + '/output_test2.csv'
+        print(csv_path)
+        # for csv_path in csv_files:
+        print("Start processing：", csv_path)
+        df = pd.read_csv(csv_path)
+        df_processed = self._generate_rl_data(df)
+        csv_filename = os.path.basename(csv_path)
+        trainData_filename = csv_filename.replace('.csv', '-rlData.csv')
+        trainData_path = os.path.join(self.training_data_path, trainData_filename)
+        df_processed.to_csv(trainData_path, index=False)
+        del df, df_processed
+        print("File processed successfully：", csv_path)
+
 
     def _generate_rl_data(self, df):
         """
-        Construct a DataFrame in reinforcement learning format based on the raw data.
-
-        Args:
-            df (pd.DataFrame): The raw data DataFrame.
-
-        Returns:
-            pd.DataFrame: The constructed training data in reinforcement learning format.
+        Generate RL data from raw data.
+        Process each row individually and reorganize the data, grouping by the same id.
         """
+        def format_str_to_time(time_str):
+            if time_str is None:
+                return None
+            else:
+                week_dict = {"Mon.":0, "Tue.":1, "Wed.":2, "Thu.":3, "Fri.":4, "Sat.":5, "Sun.":6}
 
+                week_str, hour_min_str = time_str.split(" ")
+                hour, min = hour_min_str.split(":")
+                return week_dict[week_str]*24*60 + 60*int(hour) + int(min)
+            
+        def extract_coordinates(point):
+            try:
+                x, y = point.strip('[]').split()
+                return float(x), float(y)
+            except:
+                return np.nan, np.nan
+            
         training_data_rows = []
+        df[['start_x', 'start_y']] = df['start_point'].apply(lambda x: pd.Series(extract_coordinates(x)))
+        df[['target_x', 'target_y']] = df['target_point'].apply(lambda x: pd.Series(extract_coordinates(x)))
+        grouped = df.groupby('id')
+        
+        for id_value, group in grouped:
+  
+            group = group.sort_values(by='round').reset_index(drop=True)
+            
+            actions = []
+            for index, row in group.iterrows():
+ 
+                remain_time_from_TimeMachine = format_str_to_time(row['req_leaving_time'])- format_str_to_time(row['cur_time'])
+                
+            
+                eu_distance = np.sqrt((row['start_x'] - row['target_x'])**2 + 
+                                    (row['start_y'] - row['target_y'])**2)
+                
+                var = abs(format_str_to_time(row['req_leaving_time']) - format_str_to_time(row['cur_time'])) - abs(format_str_to_time(row['req_leaving_time']) - row['oracle'])
+                
+                if 0<=var<2:
+                    action = 1
+                else:
+                    action = 0
+                
+                actions.append(action)
 
-        for (
-                deliveryPeriodIndex, advertiserNumber, advertiserCategoryIndex, budget,
-                CPAConstraint), group in df.groupby(
-            ['deliveryPeriodIndex', 'advertiserNumber', 'advertiserCategoryIndex', 'budget', 'CPAConstraint']):
-
-            group = group.sort_values('timeStepIndex')
-
-            group['timeStepIndex_volume'] = group.groupby('timeStepIndex')['timeStepIndex'].transform('size')
-
-            timeStepIndex_volume_sum = group.groupby('timeStepIndex')['timeStepIndex_volume'].first()
-
-            historical_volume = timeStepIndex_volume_sum.cumsum().shift(1).fillna(0).astype(int)
-            group['historical_volume'] = group['timeStepIndex'].map(historical_volume)
-
-            last_3_timeStepIndexs_volume = timeStepIndex_volume_sum.rolling(window=3, min_periods=1).sum().shift(
-                1).fillna(0).astype(int)
-            group['last_3_timeStepIndexs_volume'] = group['timeStepIndex'].map(last_3_timeStepIndexs_volume)
-
-            group_agg = group.groupby('timeStepIndex').agg({
-                'bid': 'mean',
-                'leastWinningCost': 'mean',
-                'conversionAction': 'mean',
-                'xi': 'mean',
-                'pValue': 'mean',
-                'timeStepIndex_volume': 'first'
-            }).reset_index()
-
-            for col in ['bid', 'leastWinningCost', 'conversionAction', 'xi', 'pValue']:
-                group_agg[f'avg_{col}_all'] = group_agg[col].expanding().mean().shift(1)
-                group_agg[f'avg_{col}_last_3'] = group_agg[col].rolling(window=3, min_periods=1).mean().shift(1)
-
-            group = group.merge(group_agg, on='timeStepIndex', suffixes=('', '_agg'))
-            # Calculate realCost and realConversion
-            realAllCost = (group['isExposed'] * group['cost']).sum()
-            realAllConversion = group['conversionAction'].sum()
-
-            for timeStepIndex in group['timeStepIndex'].unique():
-                current_timeStepIndex_data = group[group['timeStepIndex'] == timeStepIndex]
-
-                timeStepIndexNum = 48
-                current_timeStepIndex_data.fillna(0, inplace=True)
-                budget = current_timeStepIndex_data['budget'].iloc[0]
-                remainingBudget = current_timeStepIndex_data['remainingBudget'].iloc[0]
-                timeleft = (timeStepIndexNum - timeStepIndex) / timeStepIndexNum
-                bgtleft = remainingBudget / budget if budget > 0 else 0
-
-                state_features = current_timeStepIndex_data.iloc[0].to_dict()
-
-                # temporal_feature_cols = ['cur_time','target_time', 'call_time_TimeMachine', 'remain_time_from_TimeMachine']
-                # spatial_feature_cols = ['cur_point', 'target_point']
-                # other_feature_cols = ['path_time_TimeMachine']
-                # other_feature_cols_pathtime = ['path_time_TimeMachine', 'path_time_LastAPI']
+                if index == 0:
+                    avg_action_last_3 = 0
+                elif index == 1:
+                    avg_action_last_3 = np.mean(actions[-2:-1])
+                elif index == 2:
+                    avg_action_last_3 = np.mean(actions[-3:-1])
+                else:
+                    avg_action_last_3 = np.mean(actions[-4:-1])
 
                 state = (
-                    timeleft, bgtleft,
-                    state_features['avg_bid_all'],
-                    state_features['avg_bid_last_3'],
-                    state_features['avg_leastWinningCost_all'],
-                    state_features['avg_pValue_all'],
-                    state_features['avg_conversionAction_all'],
-                    state_features['avg_xi_all'],
-                    state_features['avg_leastWinningCost_last_3'],
-                    state_features['avg_pValue_last_3'],
-                    state_features['avg_conversionAction_last_3'],
-                    state_features['avg_xi_last_3'],
-                    state_features['pValue_agg'],
-                    state_features['timeStepIndex_volume_agg'],
-                    state_features['last_3_timeStepIndexs_volume'],
-                    state_features['historical_volume']
+                    format_str_to_time(row['cur_time']),
+                    format_str_to_time(row['target_time']),
+                    remain_time_from_TimeMachine,
+                    row['start_x'],
+                    row['start_y'],
+                    row['target_x'],
+                    row['target_y'],
+                    eu_distance,
+                    row['path_time_TimeMachine'],
+                    avg_action_last_3
                 )
-                # total_bid = (current_timeStepIndex_data['leastWinningCost'] * 1.3).sum()
-                total_bid = current_timeStepIndex_data['bid'].sum()
-                total_value = current_timeStepIndex_data['pValue'].sum()
-                action = total_bid / total_value if total_value > 0 else 0
-                reward = current_timeStepIndex_data[current_timeStepIndex_data['isExposed'] == 1][
-                    'conversionAction'].sum()
-                reward_continuous = current_timeStepIndex_data[current_timeStepIndex_data['isExposed'] == 1][
-                    'pValue'].sum()
-
-                done = 1 if timeStepIndex == timeStepIndexNum - 1 or current_timeStepIndex_data['isEnd'].iloc[
-                    0] == 1 else 0
 
                 training_data_rows.append({
-                    'deliveryPeriodIndex': deliveryPeriodIndex,
-                    'advertiserNumber': advertiserNumber,
-                    'advertiserCategoryIndex': advertiserCategoryIndex,
-                    'budget': budget,
-                    'CPAConstraint': CPAConstraint,
-                    'realAllCost': realAllCost,
-                    'realAllConversion': realAllConversion,
-                    'timeStepIndex': timeStepIndex,
+                    'id': row['id'],
+                    'group': row['group'],
+                    'round': row['round'],
+                    'req_leaving_time':format_str_to_time(row['req_leaving_time']),
+                    'oracle': row['oracle'],
+                    'cur_time': format_str_to_time(row['cur_time']),
+                    'start_time': row['start_time'],
                     'state': state,
-                    'action': action,
-                    'reward': reward,
-                    'reward_continuous': reward_continuous,
-                    'done': done
+                    'action': action
                 })
 
         training_data = pd.DataFrame(training_data_rows)
-        training_data = training_data.sort_values(by=['deliveryPeriodIndex', 'advertiserNumber', 'timeStepIndex'])
-
-        training_data['next_state'] = training_data.groupby(['deliveryPeriodIndex', 'advertiserNumber'])['state'].shift(
-            -1)
-        training_data.loc[training_data['done'] == 1, 'next_state'] = None
+        
         return training_data
 
 
 def generate_rl_data():
-    file_folder_path = "./data/traffic"
+    file_folder_path = "/home/sxxgwoo/clab/data/traffic"
     data_loader = RlDataGenerator(file_folder_path=file_folder_path)
     data_loader.batch_generate_rl_data()
 

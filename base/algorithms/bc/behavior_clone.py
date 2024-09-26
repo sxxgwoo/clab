@@ -23,7 +23,7 @@ class Actor(nn.Module):
 class BC(nn.Module):
     """
         Usage:
-        bc = BC(dim_obs=16)
+        bc = BC(dim_obs=10)
         bc.load_net(load_path="path_to_saved_model")
         actions = bc.take_actions(states)
     """
@@ -88,13 +88,13 @@ class BC(nn.Module):
         file_path = os.path.join(save_path, "bc.pt")
         torch.save(self.actor.state_dict(), file_path)
 
-    def load_net(self, load_path="saved_model/fixed_initial_budget", device='cpu'):
+    def load_net(self, load_path="saved_model/fixed_initial", device='cpu'):
         file_path = os.path.join(load_path, "bc.pt")
         self.actor.load_state_dict(torch.load(file_path, map_location=device))
         self.actor.to(self.device)
         print(f"Model loaded from {self.device}.")
 
-    def load_net_pkl(self, load_path="saved_model/fixed_initial_budget"):
+    def load_net_pkl(self, load_path="saved_model/fixed_initial"):
         file_path = os.path.join(load_path, "bc.pkl")
         self.actor = torch.load(file_path, map_location=self.device)
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
