@@ -8,8 +8,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 print(sys.path)
 
 # from base.common.utils import normalize_state, normalize_reward, save_normalize_dict
-from algorithms.bc.replay_buffer import ReplayBuffer
-from algorithms.bc.behavior_clone import BC
+from base.algorithms.bc.replay_buffer import ReplayBuffer
+from base.algorithms.bc.behavior_clone import BC
 import logging
 
 np.set_printoptions(suppress=True, precision=4)
@@ -35,7 +35,7 @@ def train_model():
     train BC model
     """
 
-    train_data_path = "/home/sxxgwoo/clab/data/traffic/training_data_rlData_folder/output_1-rlData.csv"
+    train_data_path = "/home/sxxgwoo/clab/data/real/filtered/training_data_rlData_folder/train_set_offline-rlData.csv"
     training_data = pd.read_csv(train_data_path)
 
     def safe_literal_eval(val):
@@ -59,15 +59,16 @@ def train_model():
     logger.info(f"Replay buffer size: {len(replay_buffer.memory)}")
 
     model = BC(dim_obs=state_dim)
-    step_num = 50000
+    step_num = 100000
     batch_size = 100
     for i in range(step_num):
         states, actions = replay_buffer.sample(batch_size)
         a_loss = model.step(states, actions)
-        logger.info(f"Step: {i} Action loss: {np.mean(a_loss)}")
+        if i % 100 == 0:
+            logger.info(f"Step: {i} Action loss: {np.mean(a_loss)}")
 
     # model.save_net("saved_model/BCtest")
-    model.save_jit("saved_model/BCtest")
+    model.save_jit("saved_model/BCrealtest")
     test_trained_model(model, replay_buffer)
 
 
